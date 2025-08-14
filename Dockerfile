@@ -21,13 +21,20 @@ RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
 WORKDIR /
 COPY . .
 
+# ---- Corriger les permissions des templates ----
+RUN chmod a+r /templates/chat.html && \
+    echo "Permissions du fichier chat.html après correction:" && \
+    stat -c "%A %n" /templates/chat.html
+
 # ---- Vérifications critiques ----
 RUN echo "=== VÉRIFICATION DES FICHIERS ===" && \
     echo "1. Fichiers à la racine:" && ls -la && \
     echo "2. Contenu du dossier templates:" && ls -la /templates && \
-    echo "3. Contenu du dossier llama.cpp/build/bin:" && ls -la /llama.cpp/build/bin && \
-    echo "4. Existence de l'exécutable:" && [ -f /llama.cpp/build/bin/main ] && echo "main existe!" || echo "main introuvable!" && \
-    echo "5. Version de Python:" && python3 --version
+    echo "3. Permissions du fichier chat.html:" && stat -c "%A %n" /templates/chat.html && \
+    echo "4. Lisibilité du fichier chat.html:" && [ -r /templates/chat.html ] && echo "LISIBLE" || echo "NON LISIBLE" && \
+    echo "5. Contenu du dossier llama.cpp/build/bin:" && ls -la /llama.cpp/build/bin && \
+    echo "6. Existence de l'exécutable:" && [ -f /llama.cpp/build/bin/main ] && echo "main existe!" || echo "main introuvable!" && \
+    echo "7. Version de Python:" && python3 --version
 
 # ---- Télécharger le modèle Mistral ----
 RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
@@ -44,10 +51,11 @@ RUN chmod +x start.sh
 # ---- Vérification finale ----
 RUN echo "=== VÉRIFICATION FINALE ===" && \
     echo "1. Environnement virtuel:" && ls -la /venv/bin && \
-    echo "2. Exécution de start.sh:" && head -n 5 start.sh
+    echo "2. Contenu de start.sh:" && cat start.sh && \
+    echo "3. Vérification de app.py:" && head -n 20 app.py | grep -A 10 "@app.route"
 
 # ---- Exposer le port ----
 EXPOSE 8080
 
-# ---- Commande de lancement ----
-CMD ["./start.sh"]
+# ---- Commande de lancement avec logging ----
+CMD ["sh", "-c", "python3 app.py >> /var/log/app.log 2>&1"]
