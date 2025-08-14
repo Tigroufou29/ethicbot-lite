@@ -3,7 +3,7 @@ FROM debian:bookworm-slim
 
 # ---- Installer les dépendances ----
 RUN apt-get update && apt-get install -y \
-    git build-essential python3 python3-pip wget curl cmake \
+    git build-essential python3 python3-pip wget curl cmake libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- Cloner llama.cpp ----
@@ -12,7 +12,7 @@ RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp
 # ---- Construire llama.cpp avec CMake ----
 WORKDIR /llama.cpp
 RUN mkdir build && cd build && \
-    cmake .. -DLLAMA_CUBLAS=OFF -DLLAMA_METAL=OFF && \
+    cmake .. -DLLAMA_CURL=ON -DLLAMA_CUBLAS=OFF -DLLAMA_METAL=OFF && \
     cmake --build . --config Release
 
 # ---- Copier les fichiers de l'application ----
