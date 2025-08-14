@@ -3,89 +3,92 @@ import os
 import logging
 from flask import Flask, request, jsonify, render_template
 
-# Configuration explicite de l'application
-app = Flask(
-    __name__,
-    template_folder='/templates',
-    static_folder=None
-)
+app = Flask(__name__)
 app.logger.setLevel(logging.INFO)
 
-# Chemins des fichiers
+# Configuration des chemins
 MODEL_PATH = "/Lite-Mistral-150M-v2-Instruct-FP16.gguf"
 LLAMA_CPP_EXECUTABLE = "/llama.cpp/build/bin/main"
-TEMPLATE_PATH = "/templates/chat.html"
+TEMPLATE_DIR = "/templates"
+
+# Définir explicitement le dossier des templates
+app.template_folder = TEMPLATE_DIR
 
 # Vérification des chemins au démarrage
-def verify_paths():
-    paths = {
-        "Model": MODEL_PATH,
+def log_path_verification():
+    paths_to_check = {
+        "Template Directory": TEMPLATE_DIR,
+        "Template File": os.path.join(TEMPLATE_DIR, "chat.html"),
         "Llama Executable": LLAMA_CPP_EXECUTABLE,
-        "Template": TEMPLATE_PATH
+        "Model File": MODEL_PATH
     }
     
-    for name, path in paths.items():
-        if not os.path.exists(path):
-            app.logger.error(f"ERREUR: {name} introuvable à {path}")
+    for name, path in paths_to_check.items():
+        if os.path.exists(path):
+            app.logger.info(f"✅ {name} trouvé: {path}")
         else:
-            app.logger.info(f"{name} trouvé à {path}")
+            app.logger.error(f"❌ {name} INTROUVABLE: {path}")
 
-# Routes
-@app.route("/")
+# Route d'accueil
+@app.route('/')
 def home():
     return "Lite Mistral API OK"
 
-@app.route("/chat", methods=["GET"])
+# Route GET pour l'interface de chat
+@app.route('/chat', methods=['GET'])
 def chat_interface():
     app.logger.info("Accès à l'interface de chat")
-    return render_template("chat.html")
-
-@app.route("/api/chat", methods=["POST"])
-def chat_api():
-    data = request.get_json()
-    if not data or "prompt" not in data:
-        return jsonify({"error": "Requête JSON invalide"}), 400
-    
-    prompt = data["prompt"]
-    app.logger.info(f"Prompt reçu: {prompt}")
-    
-    cmd = [
-        LLAMA_CPP_EXECUTABLE,
-        "-m", MODEL_PATH,
-        "-p", prompt,
-        "-n", "200",
-        "--temp", "0.7"
-    ]
-    
     try:
+        return render_template('chat.html')
+    except Exception as e:
+        app.logger.error(f"Erreur de rendu du template: {str(e)}")
+        return f"Erreur: {str(e)}", 500
+
+# Route POST pour l'API de chat
+@app.route('/api/chat', methods=['POST'])
+def chat_api():
+    try:
+        data = request.get_json()
+        prompt = data.get('prompt', '')
+        app.logger.info(f"Prompt reçu: {prompt}")
+        
+        if not prompt:
+            return jsonify({"error": "Prompt vide"}), 400
+        
+        cmd = [
+            LLAMA_CPP_EXECUTABLE,
+            "-m", MODEL_PATH,
+            "-p", prompt,
+            "-n", "200",
+            "--temp", "0.7"
+        ]
+        
         app.logger.info(f"Exécution de la commande: {' '.join(cmd)}")
         output = subprocess.check_output(
             cmd, 
             universal_newlines=True,
             timeout=120
         )
+        
         return jsonify({"response": output})
+    
     except Exception as e:
-        app.logger.error(f"Erreur: {str(e)}")
+        app.logger.error(f"Erreur API: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    # Configuration supplémentaire
-    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
-    app.config['TEMPLATES_AUTO_RELOAD'] = True
-    
+if __name__ == '__main__':
     # Vérification des chemins
-    verify_paths()
+    log_path_verification()
     
-    # Log des routes
+    # Journalisation des routes
     app.logger.info("Routes enregistrées:")
     for rule in app.url_map.iter_rules():
-        app.logger.info(f"{rule.methods}: {rule.rule}")
+        app.logger.info(f"{rule.methods} {rule.rule}")
     
-    # Démarrage du serveur
+    # Démarrer l'application
     app.run(
-        host="0.0.0.0", 
+        host='0.0.0.0',
         port=8080,
-        use_reloader=False,
-        threaded=True
+        debug=False,
+        use_reloader=False
     )
