@@ -3,37 +3,50 @@ import os
 import logging
 from flask import Flask, request, jsonify, render_template
 
-app = Flask(__name__, template_folder='/templates')
+# Configuration explicite de l'application
+app = Flask(
+    __name__,
+    template_folder='/templates',
+    static_folder=None
+)
 app.logger.setLevel(logging.INFO)
 
+# Chemins des fichiers
 MODEL_PATH = "/Lite-Mistral-150M-v2-Instruct-FP16.gguf"
 LLAMA_CPP_EXECUTABLE = "/llama.cpp/build/bin/main"
+TEMPLATE_PATH = "/templates/chat.html"
 
-# Vérification du chemin de l'exécutable
-if not os.path.exists(LLAMA_CPP_EXECUTABLE):
-    app.logger.error(f"ERREUR: Exécutable Llama introuvable à {LLAMA_CPP_EXECUTABLE}")
-else:
-    app.logger.info(f"Exécutable Llama trouvé à {LLAMA_CPP_EXECUTABLE}")
+# Vérification des chemins au démarrage
+def verify_paths():
+    paths = {
+        "Model": MODEL_PATH,
+        "Llama Executable": LLAMA_CPP_EXECUTABLE,
+        "Template": TEMPLATE_PATH
+    }
+    
+    for name, path in paths.items():
+        if not os.path.exists(path):
+            app.logger.error(f"ERREUR: {name} introuvable à {path}")
+        else:
+            app.logger.info(f"{name} trouvé à {path}")
 
-# Page d'accueil
+# Routes
 @app.route("/")
 def home():
     return "Lite Mistral API OK"
 
-# Interface de chat - GET
 @app.route("/chat", methods=["GET"])
 def chat_interface():
     app.logger.info("Accès à l'interface de chat")
-    try:
-        return render_template("chat.html")
-    except Exception as e:
-        app.logger.error(f"Erreur de rendu du template: {str(e)}")
-        return f"Erreur: {str(e)}", 500
+    return render_template("chat.html")
 
-# Endpoint API pour le chat - POST
 @app.route("/api/chat", methods=["POST"])
 def chat_api():
-    prompt = request.json.get("prompt", "")
+    data = request.get_json()
+    if not data or "prompt" not in data:
+        return jsonify({"error": "Requête JSON invalide"}), 400
+    
+    prompt = data["prompt"]
     app.logger.info(f"Prompt reçu: {prompt}")
     
     cmd = [
@@ -51,24 +64,28 @@ def chat_api():
             universal_newlines=True,
             timeout=120
         )
-        # Nettoyer la sortie
-        cleaned_output = output.split("assistant:")[-1].strip()
-        return jsonify({"response": cleaned_output})
+        return jsonify({"response": output})
     except Exception as e:
         app.logger.error(f"Erreur: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # Log des routes disponibles
+    # Configuration supplémentaire
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    
+    # Vérification des chemins
+    verify_paths()
+    
+    # Log des routes
     app.logger.info("Routes enregistrées:")
     for rule in app.url_map.iter_rules():
         app.logger.info(f"{rule.methods}: {rule.rule}")
     
-    # Vérification du fichier template
-    template_path = "/templates/chat.html"
-    if os.path.exists(template_path):
-        app.logger.info(f"Template trouvé à {template_path}")
-    else:
-        app.logger.error(f"ERREUR: Template introuvable à {template_path}")
-    
-    app.run(host="0.0.0.0", port=8080)
+    # Démarrage du serveur
+    app.run(
+        host="0.0.0.0", 
+        port=8080,
+        use_reloader=False,
+        threaded=True
+    )
