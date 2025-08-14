@@ -13,16 +13,17 @@ RUN make
 
 # ---- Télécharger le modèle directement ----
 WORKDIR /
-RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf "LIEN_DIRECT_VERS_LE_MODELE"
+RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf "https://huggingface.co/Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16/resolve/main/Lite-Mistral-150M-v2-Instruct-FP16.gguf?download=true"
 
-# ---- Copier le serveur Flask ----
+# ---- Installer les dépendances Python ----
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# ---- Copier l'application ----
 COPY app.py .
-COPY start .
 
 # ---- Exposer le port ----
 EXPOSE 8080
 
 # ---- Lancer l'application ----
-CMD ["bash", "start"]
+CMD ["python3", "app.py"]
