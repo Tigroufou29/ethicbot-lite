@@ -11,19 +11,20 @@ RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp
 WORKDIR /llama.cpp
 RUN make
 
-# ---- Télécharger le modèle directement ----
+# ---- Télécharger ton modèle Hugging Face ----
 WORKDIR /
 RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf "https://huggingface.co/Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16/resolve/main/Lite-Mistral-150M-v2-Instruct-FP16.gguf?download=true"
 
-# ---- Installer les dépendances Python ----
+# ---- Installer Python + Flask ----
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ---- Copier l'application ----
+# ---- Copier ton API ----
 COPY app.py .
+COPY start .
 
 # ---- Exposer le port ----
 EXPOSE 8080
 
-# ---- Lancer l'application ----
-CMD ["python3", "app.py"]
+# ---- Commande de démarrage ----
+CMD ["bash", "start"]
