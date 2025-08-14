@@ -20,6 +20,8 @@ WORKDIR /
 COPY app.py .
 COPY requirements.txt .
 COPY start.sh .
+# Ajout du dossier templates pour l'interface de chat
+COPY templates /templates
 
 # ---- Télécharger le modèle Mistral ----
 RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
