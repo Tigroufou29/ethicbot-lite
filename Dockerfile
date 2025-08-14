@@ -1,69 +1,39 @@
-# ---- Base ----
-FROM debian:bookworm-slim
+# Configuration de Flask
+app = Flask(
+    __name__,
+    template_folder='templates',  # Chemin relatif au répertoire de travail
+    static_folder=None
+)
 
-# ---- Installer les dépendances ----
-RUN apt-get update && apt-get install -y \
-    git build-essential python3 python3-pip python3-venv wget curl cmake libcurl4-openssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Définition du chemin du template
+TEMPLATE_PATH = "templates/chat.html"  # Chemin relatif
 
-# ---- Cloner et construire llama.cpp avec correction ----
-RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
-    cd /llama.cpp && \
-    mkdir build && cd build && \
-    cmake .. -DLLAMA_CURL=ON -DLLAMA_CUBLAS=OFF -DLLAMA_METAL=OFF && \
-    cmake --build . --config Release && \
-    # Recherche du binaire principal
-    if [ -f bin/main ]; then echo "Binaire trouvé dans bin/main"; \
-    elif [ -f main ]; then echo "Binaire trouvé dans build/main"; mv main bin/main; \
-    else echo "ERREUR: Binaire non trouvé!"; exit 1; fi
-
-# ---- Copier les fichiers de l'application ----
-WORKDIR /
-COPY . .
-
-# ---- Vérification et correction des templates ----
-RUN echo "=== VÉRIFICATION DES TEMPLATES ===" && \
-    echo "1. Contenu du dossier templates avant correction:" && ls -la /templates && \
-    echo "2. Création du dossier templates si nécessaire" && mkdir -p /templates && \
-    echo "3. Copie manuelle des templates" && cp -r templates/* /templates/ && \
-    echo "4. Contenu du dossier templates après correction:" && ls -la /templates && \
-    echo "5. Vérification spécifique de chat.html:" && [ -f /templates/chat.html ] && echo "chat.html EXISTE" || echo "chat.html INTROUVABLE" && \
-    echo "6. Correction des permissions:" && chmod a+r /templates/chat.html && \
-    echo "7. Permissions finales:" && stat -c "%A %n" /templates/chat.html
-
-# ---- Vérifications critiques ----
-RUN echo "=== VÉRIFICATION DES FICHIERS ===" && \
-    echo "1. Fichiers à la racine:" && ls -la && \
-    echo "2. Structure des dossiers:" && tree -L 3 / && \
-    echo "3. Contenu du dossier templates:" && ls -la /templates && \
-    echo "4. Existence de chat.html:" && [ -f /templates/chat.html ] && echo "PRÉSENT" || echo "ABSENT" && \
-    echo "5. Contenu du dossier llama.cpp/build/bin:" && ls -la /llama.cpp/build/bin && \
-    echo "6. Existence de l'exécutable:" && [ -f /llama.cpp/build/bin/main ] && echo "main existe!" || echo "main introuvable!" && \
-    echo "7. Version de Python:" && python3 --version
-
-# ---- Télécharger le modèle Mistral ----
-RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
-"https://huggingface.co/Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16/resolve/main/Lite-Mistral-150M-v2-Instruct-FP16.gguf?download=true"
-
-# ---- Créer un environnement virtuel et installer les dépendances ----
-RUN python3 -m venv /venv
-ENV PATH="/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
-
-# ---- Rendre le script start.sh exécutable ----
-RUN chmod +x start.sh
-
-# ---- Vérification finale ----
-RUN echo "=== VÉRIFICATION FINALE ===" && \
-    echo "1. Environnement virtuel:" && ls -la /venv/bin && \
-    echo "2. Contenu de start.sh:" && cat start.sh && \
-    echo "3. Vérification de app.py:" && head -n 20 app.py | grep -A 10 "@app.route"
-
-# ---- Installer tree pour le débogage ----
-RUN apt-get update && apt-get install -y tree && rm -rf /var/lib/apt/lists/*
-
-# ---- Exposer le port ----
-EXPOSE 8080
-
-# ---- Commande de lancement avec logging ----
-CMD ["sh", "-c", "python3 app.py >> /var/log/app.log 2>&1"]
+# Dans la fonction chat_interface
+@app.route('/chat')
+def chat_interface():
+    try:
+        # Chemin relatif
+        template_path = "templates/chat.html"
+        
+        # Vérification locale
+        if not os.path.exists(template_path):
+            # Vérifier dans le répertoire parent
+            parent_path = "../templates/chat.html"
+            if os.path.exists(parent_path):
+                return render_template(parent_path)
+            
+            # Recherche approfondie
+            found_paths = []
+            for root, dirs, files in os.walk('.'):
+                if "chat.html" in files:
+                    found_paths.append(os.path.join(root, "chat.html"))
+            
+            if found_paths:
+                return f"Template trouvé à: {', '.join(found_paths)}", 200
+            else:
+                return "Template introuvable dans le système de fichiers", 500
+        
+        return render_template('chat.html')
+    
+    except Exception as e:
+        return f"Erreur: {str(e)}", 500
