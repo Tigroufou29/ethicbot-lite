@@ -23,6 +23,16 @@ COPY start.sh .
 # Ajout du dossier templates pour l'interface de chat
 COPY templates /templates
 
+# ---- Vérification des fichiers copiés ----
+RUN echo "Vérification des fichiers copiés:" && \
+    ls -la && \
+    echo "Contenu du dossier templates:" && \
+    ls -la /templates && \
+    echo "Contenu du fichier chat.html:" && \
+    cat /templates/chat.html && \
+    echo "Vérification de l'exécutable llama.cpp:" && \
+    ls -la /llama.cpp/build/bin/main
+
 # ---- Télécharger le modèle Mistral ----
 RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
 "https://huggingface.co/Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16/resolve/main/Lite-Mistral-150M-v2-Instruct-FP16.gguf?download=true"
