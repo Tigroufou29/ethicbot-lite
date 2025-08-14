@@ -21,17 +21,22 @@ RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
 WORKDIR /
 COPY . .
 
-# ---- Corriger les permissions des templates ----
-RUN chmod a+r /templates/chat.html && \
-    echo "Permissions du fichier chat.html après correction:" && \
-    stat -c "%A %n" /templates/chat.html
+# ---- Vérification et correction des templates ----
+RUN echo "=== VÉRIFICATION DES TEMPLATES ===" && \
+    echo "1. Contenu du dossier templates avant correction:" && ls -la /templates && \
+    echo "2. Création du dossier templates si nécessaire" && mkdir -p /templates && \
+    echo "3. Copie manuelle des templates" && cp -r templates/* /templates/ && \
+    echo "4. Contenu du dossier templates après correction:" && ls -la /templates && \
+    echo "5. Vérification spécifique de chat.html:" && [ -f /templates/chat.html ] && echo "chat.html EXISTE" || echo "chat.html INTROUVABLE" && \
+    echo "6. Correction des permissions:" && chmod a+r /templates/chat.html && \
+    echo "7. Permissions finales:" && stat -c "%A %n" /templates/chat.html
 
 # ---- Vérifications critiques ----
 RUN echo "=== VÉRIFICATION DES FICHIERS ===" && \
     echo "1. Fichiers à la racine:" && ls -la && \
-    echo "2. Contenu du dossier templates:" && ls -la /templates && \
-    echo "3. Permissions du fichier chat.html:" && stat -c "%A %n" /templates/chat.html && \
-    echo "4. Lisibilité du fichier chat.html:" && [ -r /templates/chat.html ] && echo "LISIBLE" || echo "NON LISIBLE" && \
+    echo "2. Structure des dossiers:" && tree -L 3 / && \
+    echo "3. Contenu du dossier templates:" && ls -la /templates && \
+    echo "4. Existence de chat.html:" && [ -f /templates/chat.html ] && echo "PRÉSENT" || echo "ABSENT" && \
     echo "5. Contenu du dossier llama.cpp/build/bin:" && ls -la /llama.cpp/build/bin && \
     echo "6. Existence de l'exécutable:" && [ -f /llama.cpp/build/bin/main ] && echo "main existe!" || echo "main introuvable!" && \
     echo "7. Version de Python:" && python3 --version
@@ -53,6 +58,9 @@ RUN echo "=== VÉRIFICATION FINALE ===" && \
     echo "1. Environnement virtuel:" && ls -la /venv/bin && \
     echo "2. Contenu de start.sh:" && cat start.sh && \
     echo "3. Vérification de app.py:" && head -n 20 app.py | grep -A 10 "@app.route"
+
+# ---- Installer tree pour le débogage ----
+RUN apt-get update && apt-get install -y tree && rm -rf /var/lib/apt/lists/*
 
 # ---- Exposer le port ----
 EXPOSE 8080
