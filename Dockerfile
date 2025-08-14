@@ -6,14 +6,16 @@ RUN apt-get update && apt-get install -y \
     git build-essential python3 python3-pip python3-venv wget curl cmake libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# ---- Cloner llama.cpp ----
-RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp
-
-# ---- Construire llama.cpp avec CMake ----
-WORKDIR /llama.cpp
-RUN mkdir build && cd build && \
+# ---- Cloner et construire llama.cpp avec correction ----
+RUN git clone https://github.com/ggerganov/llama.cpp.git /llama.cpp && \
+    cd /llama.cpp && \
+    mkdir build && cd build && \
     cmake .. -DLLAMA_CURL=ON -DLLAMA_CUBLAS=OFF -DLLAMA_METAL=OFF && \
-    cmake --build . --config Release
+    cmake --build . --config Release && \
+    # Recherche du binaire principal
+    if [ -f bin/main ]; then echo "Binaire trouvé dans bin/main"; \
+    elif [ -f main ]; then echo "Binaire trouvé dans build/main"; mv main bin/main; \
+    else echo "ERREUR: Binaire non trouvé!"; exit 1; fi
 
 # ---- Copier les fichiers de l'application ----
 WORKDIR /
@@ -23,9 +25,9 @@ COPY . .
 RUN echo "=== VÉRIFICATION DES FICHIERS ===" && \
     echo "1. Fichiers à la racine:" && ls -la && \
     echo "2. Contenu du dossier templates:" && ls -la /templates && \
-    echo "3. Contenu complet de app.py:" && cat app.py && \
-    echo "4. Exécutable llama.cpp:" && ls -la /llama.cpp/build/bin/main && \
-    echo "5. Vérification de l'installation de Python:" && python3 --version
+    echo "3. Contenu du dossier llama.cpp/build/bin:" && ls -la /llama.cpp/build/bin && \
+    echo "4. Existence de l'exécutable:" && [ -f /llama.cpp/build/bin/main ] && echo "main existe!" || echo "main introuvable!" && \
+    echo "5. Version de Python:" && python3 --version
 
 # ---- Télécharger le modèle Mistral ----
 RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
@@ -39,8 +41,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # ---- Rendre le script start.sh exécutable ----
 RUN chmod +x start.sh
 
+# ---- Vérification finale ----
+RUN echo "=== VÉRIFICATION FINALE ===" && \
+    echo "1. Environnement virtuel:" && ls -la /venv/bin && \
+    echo "2. Exécution de start.sh:" && head -n 5 start.sh
+
 # ---- Exposer le port ----
 EXPOSE 8080
 
-# ---- Commande de lancement avec logging ----
-CMD ["sh", "-c", "python3 app.py >> /var/log/app.log 2>&1"]
+# ---- Commande de lancement ----
+CMD ["./start.sh"]
