@@ -3,7 +3,7 @@ FROM debian:bookworm-slim
 
 # ---- Installer les dépendances ----
 RUN apt-get update && apt-get install -y \
-    git build-essential python3 python3-pip wget curl cmake libcurl4-openssl-dev \
+    git build-essential python3 python3-pip python3-venv wget curl cmake libcurl4-openssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- Cloner llama.cpp ----
@@ -25,7 +25,9 @@ COPY start.sh .
 RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
 "https://huggingface.co/Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16/resolve/main/Lite-Mistral-150M-v2-Instruct-FP16.gguf?download=true"
 
-# ---- Installer les dépendances Python ----
+# ---- Créer un environnement virtuel et installer les dépendances ----
+RUN python3 -m venv /venv
+ENV PATH="/venv/bin:$PATH"
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---- Rendre le script start.sh exécutable ----
