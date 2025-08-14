@@ -24,9 +24,9 @@ def chat():
         "-m", MODEL_PATH,
         "-p", prompt,
         "-n", "200",
-        "--temp", "0.7",      # Contrôle de la créativité
-        "--top-p", "0.9",      # Diversité des réponses
-        "--repeat-penalty", "1.1"  # Évite la répétition
+        "--temp", "0.7",
+        "--top-p", "0.9",
+        "--repeat-penalty", "1.1"
     ]
     
     try:
@@ -34,9 +34,9 @@ def chat():
         output = subprocess.check_output(
             cmd, 
             universal_newlines=True,
-            timeout=120  # 2 minutes timeout
+            timeout=120
         )
-        # Nettoyer la sortie pour ne garder que la réponse
+        # Nettoyer la sortie
         cleaned_output = output.split("assistant:")[-1].strip()
         return jsonify({"response": cleaned_output})
     except subprocess.TimeoutExpired:
@@ -46,8 +46,8 @@ def chat():
         app.logger.error(f"Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Interface de chat (GET) - Nouveau chemin pour éviter les conflits
-@app.route("/chat-ui")
+# Interface de chat (GET) - CORRIGÉ : chemin en minuscules
+@app.route("/chat")
 def chat_interface():
     app.logger.info("Serving chat interface")
     return render_template("chat.html")
@@ -59,8 +59,8 @@ def home():
 
 if __name__ == "__main__":
     # Afficher toutes les routes pour le débogage
-    app.logger.info("Registered routes:")
+    print("Registered routes:")
     for rule in app.url_map.iter_rules():
-        app.logger.info(f"{rule.methods}: {rule.rule}")
+        print(f"{rule.methods}: {rule.rule}")
     
     app.run(host="0.0.0.0", port=8080)
