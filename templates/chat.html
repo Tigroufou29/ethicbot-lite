@@ -8,6 +8,7 @@
         .message { margin-bottom: 10px; }
         .user { color: #0066cc; font-weight: bold; }
         .assistant { color: #009933; font-weight: bold; }
+        .error { color: #cc0000; }
         input[type="text"] { width: 70%; padding: 10px; }
         button { padding: 10px 20px; }
     </style>
@@ -31,21 +32,24 @@
             chatbox.scrollTop = chatbox.scrollHeight;
             
             try {
-                const response = await fetch('/v1/chat/completions', {
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
-                        model: "Lite-Mistral-150M-v2-Instruct-FP16",
-                        messages: [{role: "user", content: message}]
+                        prompt: message  // Format attendu par votre backend
                     })
                 });
                 
                 const data = await response.json();
-                const aiResponse = data.choices[0].message.content;
-                chatbox.innerHTML += `<div class="message assistant">IA: ${aiResponse}</div>`;
+                if (data.response) {
+                    chatbox.innerHTML += `<div class="message assistant">IA: ${data.response}</div>`;
+                } else if (data.error) {
+                    chatbox.innerHTML += `<div class="message error">Erreur: ${data.error}</div>`;
+                }
                 chatbox.scrollTop = chatbox.scrollHeight;
             } catch (error) {
-                chatbox.innerHTML += `<div class="message error">Erreur: ${error.message}</div>`;
+                chatbox.innerHTML += `<div class="message error">Erreur réseau: ${error.message}</div>`;
+                chatbox.scrollTop = chatbox.scrollHeight;
             }
             
             input.value = '';
