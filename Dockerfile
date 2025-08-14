@@ -15,7 +15,7 @@ RUN make
 WORKDIR /
 COPY app.py .
 COPY requirements.txt .
-COPY start.sh .
+COPY start.sh .  # Fonctionnera maintenant que start.sh est dans le repo
 
 # ---- Télécharger le modèle Mistral ----
 RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
@@ -25,7 +25,7 @@ RUN wget -O /Lite-Mistral-150M-v2-Instruct-FP16.gguf \
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---- Rendre le script start.sh exécutable ----
-RUN chmod +x start.sh
+RUN chmod +x start.sh  # Important pour l'exécution
 
 # ---- Exposer le port ----
 EXPOSE 8080
