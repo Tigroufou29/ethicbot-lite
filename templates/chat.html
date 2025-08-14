@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Mistral</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #chatbox { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; }
+        .message { margin-bottom: 10px; }
+        .user { color: #0066cc; font-weight: bold; }
+        .assistant { color: #009933; font-weight: bold; }
+        input[type="text"] { width: 70%; padding: 10px; }
+        button { padding: 10px 20px; }
+    </style>
+</head>
+<body>
+    <h1>Chat avec Mistral</h1>
+    <div id="chatbox"></div>
+    <div>
+        <input type="text" id="message" placeholder="Tapez votre message...">
+        <button onclick="sendMessage()">Envoyer</button>
+    </div>
+
+    <script>
+        async function sendMessage() {
+            const input = document.getElementById('message');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            const chatbox = document.getElementById('chatbox');
+            chatbox.innerHTML += `<div class="message user">Vous: ${message}</div>`;
+            chatbox.scrollTop = chatbox.scrollHeight;
+            
+            try {
+                const response = await fetch('/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        model: "Lite-Mistral-150M-v2-Instruct-FP16",
+                        messages: [{role: "user", content: message}]
+                    })
+                });
+                
+                const data = await response.json();
+                const aiResponse = data.choices[0].message.content;
+                chatbox.innerHTML += `<div class="message assistant">IA: ${aiResponse}</div>`;
+                chatbox.scrollTop = chatbox.scrollHeight;
+            } catch (error) {
+                chatbox.innerHTML += `<div class="message error">Erreur: ${error.message}</div>`;
+            }
+            
+            input.value = '';
+        }
+        
+        document.getElementById('message').addEventListener('keypress', e => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
