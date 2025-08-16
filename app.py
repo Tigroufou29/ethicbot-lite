@@ -41,6 +41,7 @@ def chat_api():
             temperature=0.7
         )
 
+        # Vérification de la structure de la réponse
         if isinstance(output, list) and "generated_text" in output[0]:
             text = output[0]["generated_text"]
         elif isinstance(output, dict) and "generated_text" in output:
@@ -50,4 +51,14 @@ def chat_api():
         else:
             text = str(output)
 
-        return jsonify({"response":
+        # ✅ Retour JSON correctement fermé
+        return jsonify({"response": text})
+
+    except Exception as e:
+        app.logger.error(f"Erreur HuggingFace API: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# --- MAIN ---
+if __name__ == "__main__":
+    app.logger.info("🚀 Démarrage de l'application Flask sur port 8080")
+    app.run(host="0.0.0.0", port=8080)
