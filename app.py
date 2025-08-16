@@ -14,12 +14,13 @@ if not koyeb_token:
 
 # --- Client Hugging Face ---
 client = InferenceClient(token=koyeb_token)
-model_id = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
+# Nouveau modèle public performant
+model_id = "tiiuae/falcon-7b-instruct"
 
 # --- Page d'accueil ---
 @app.route("/")
 def home():
-    return "Lite Mistral API OK"
+    return "Falcon-7B Instruct API OK"
 
 # --- Interface de chat ---
 @app.route("/chat", methods=["GET"])
@@ -43,7 +44,6 @@ def chat_api():
             max_new_tokens=200,
             temperature=0.7
         )
-        # Récupération du texte généré
         text = output[0]["generated_text"]
         return jsonify({"response": text})
     except Exception as e:
@@ -52,7 +52,6 @@ def chat_api():
 
 # --- Lancement de l'application ---
 if __name__ == "__main__":
-    # Vérification du template
     template_path = "templates/chat.html"
     if os.path.exists(template_path):
         app.logger.info(f"Template trouvé à {template_path}")
