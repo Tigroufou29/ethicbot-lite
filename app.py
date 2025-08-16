@@ -14,7 +14,7 @@ if not koyeb_token:
 
 # --- Client Hugging Face ---
 client = InferenceClient(token=koyeb_token)
-model_id = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
+model_id = "Philtonslip/Lite-Mistral-150M-v2-Instruct"
 
 # --- Page d'accueil ---
 @app.route("/")
