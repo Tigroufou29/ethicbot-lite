@@ -3,31 +3,34 @@ import logging
 from flask import Flask, request, jsonify, render_template
 from huggingface_hub import InferenceClient
 
-# --- CONFIGURATION ---
-app = Flask(__name__, template_folder='templates')
+# --- Configuration Flask ---
+app = Flask(__name__, template_folder="templates")
 app.logger.setLevel(logging.INFO)
 
-HF_TOKEN = os.getenv("HF_TOKEN")
-MODEL_NAME = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
+# --- Token Hugging Face Koyeb ---
+koyeb_token = os.environ.get("KOYEB_HF_TOKEN", "")
+if not koyeb_token:
+    app.logger.error("Le token Hugging Face n'est pas défini dans KOYEB_HF_TOKEN.")
 
-if not HF_TOKEN:
-    raise ValueError("⚠️ La variable d'environnement HF_TOKEN n'est pas définie sur Koyeb")
+# --- Client Hugging Face ---
+client = InferenceClient(token=koyeb_token)
+model_id = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
 
-client = InferenceClient(token=HF_TOKEN)
-
-# --- ROUTES ---
+# --- Page d'accueil ---
 @app.route("/")
 def home():
-    return "✅ Lite Mistral API déployée sur Koyeb"
+    return "Lite Mistral API OK"
 
+# --- Interface de chat ---
 @app.route("/chat", methods=["GET"])
 def chat_interface():
     try:
         return render_template("chat.html")
     except Exception as e:
-        app.logger.error(f"Erreur template: {str(e)}")
+        app.logger.error(f"Erreur de rendu du template: {str(e)}")
         return f"Erreur: {str(e)}", 500
 
+# --- Endpoint API chat ---
 @app.route("/api/chat", methods=["POST"])
 def chat_api():
     prompt = request.json.get("prompt", "")
@@ -35,30 +38,29 @@ def chat_api():
 
     try:
         output = client.text_generation(
-            model=MODEL_NAME,
-            inputs=prompt,
+            model=model_id,
+            prompt=prompt,
             max_new_tokens=200,
             temperature=0.7
         )
-
-        # Vérification de la structure de la réponse
-        if isinstance(output, list) and "generated_text" in output[0]:
-            text = output[0]["generated_text"]
-        elif isinstance(output, dict) and "generated_text" in output:
-            text = output["generated_text"]
-        elif isinstance(output, dict) and "error" in output:
-            text = f"Erreur HuggingFace: {output['error']}"
-        else:
-            text = str(output)
-
-        # ✅ Retour JSON correctement fermé
+        # Récupération du texte généré
+        text = output[0]["generated_text"]
         return jsonify({"response": text})
-
     except Exception as e:
         app.logger.error(f"Erreur HuggingFace API: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Erreur lors de la génération du texte."}), 500
 
-# --- MAIN ---
+# --- Lancement de l'application ---
 if __name__ == "__main__":
-    app.logger.info("🚀 Démarrage de l'application Flask sur port 8080")
+    # Vérification du template
+    template_path = "templates/chat.html"
+    if os.path.exists(template_path):
+        app.logger.info(f"Template trouvé à {template_path}")
+    else:
+        app.logger.error(f"ERREUR: Template introuvable à {template_path}")
+
+    app.logger.info("Routes enregistrées:")
+    for rule in app.url_map.iter_rules():
+        app.logger.info(f"{rule.methods}: {rule.rule}")
+
     app.run(host="0.0.0.0", port=8080)
