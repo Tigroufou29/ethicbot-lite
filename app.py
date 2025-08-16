@@ -7,19 +7,19 @@ from huggingface_hub import InferenceClient
 app = Flask(__name__, template_folder="templates")
 app.logger.setLevel(logging.INFO)
 
-# --- Token Hugging Face ---
-hf_token = os.environ.get("KOYEB_HF_TOKEN", "")
-if not hf_token:
+# --- Token Hugging Face Koyeb ---
+koyeb_token = os.environ.get("KOYEB_HF_TOKEN", "")
+if not koyeb_token:
     app.logger.error("Le token Hugging Face n'est pas défini dans KOYEB_HF_TOKEN.")
 
 # --- Client Hugging Face ---
-client = InferenceClient(token=hf_token)
-model_id = "TheBloke/Lite-Mistral-150M"
+client = InferenceClient(token=koyeb_token)
+model_id = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
 
 # --- Page d'accueil ---
 @app.route("/")
 def home():
-    return "Lite-Mistral API OK"
+    return "Lite Mistral API OK"
 
 # --- Interface de chat ---
 @app.route("/chat", methods=["GET"])
@@ -37,13 +37,13 @@ def chat_api():
     app.logger.info(f"Prompt reçu: {prompt}")
 
     try:
-        # Appel à l'API Hugging Face
         output = client.text_generation(
             model=model_id,
             prompt=prompt,
-            max_new_tokens=150,
+            max_new_tokens=200,
             temperature=0.7
         )
+        # Récupération du texte généré
         text = output[0]["generated_text"]
         return jsonify({"response": text})
     except Exception as e:
@@ -52,6 +52,7 @@ def chat_api():
 
 # --- Lancement de l'application ---
 if __name__ == "__main__":
+    # Vérification du template
     template_path = "templates/chat.html"
     if os.path.exists(template_path):
         app.logger.info(f"Template trouvé à {template_path}")
