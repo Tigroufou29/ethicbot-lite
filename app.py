@@ -1,75 +1,61 @@
 import os
-import subprocess
 import logging
+import requests
 from flask import Flask, request, jsonify, render_template
 
+# Répertoire de base (là où est app.py)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-app = Flask(
-    __name__,
-    template_folder=os.path.join(BASE_DIR, "templates")
-)
+# Flask setup
+app = Flask(__name__, template_folder=os.path.join(BASE_DIR, "templates"))
 app.logger.setLevel(logging.INFO)
 
-MODEL_PATH = os.path.join(BASE_DIR, "Lite-Mistral-150M-v2-Instruct-FP16.gguf")
-LLAMA_CPP_EXECUTABLE = "/llama.cpp/build/bin/main"
+# Modèle Hugging Face (léger)
+HF_MODEL = "tiiuae/falcon-rw-1b"   # ⚡ tu peux remplacer par un autre modèle
+HF_API_URL = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
 
-# Vérification du chemin de l'exécutable
-if not os.path.exists(LLAMA_CPP_EXECUTABLE):
-    app.logger.error(f"ERREUR: Exécutable Llama introuvable à {LLAMA_CPP_EXECUTABLE}")
-else:
-    app.logger.info(f"Exécutable Llama trouvé à {LLAMA_CPP_EXECUTABLE}")
+# Récupération du token dans Koyeb (Settings > Environment Variables > HF_TOKEN)
+HF_TOKEN = os.environ.get("HF_TOKEN")
+headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
 
-# Page d'accueil
+# Page d’accueil
 @app.route("/")
 def home():
-    return "Lite Mistral API OK"
+    return "Lite EthicBot API OK (via Hugging Face)"
 
-# Interface de chat - GET
+# Interface web
 @app.route("/chat", methods=["GET"])
 def chat_interface():
-    app.logger.info("Accès à l'interface de chat")
-    try:
-        return render_template("chat.html")
-    except Exception as e:
-        app.logger.error(f"Erreur de rendu du template: {str(e)}")
-        return f"Erreur: {str(e)}", 500
+    return render_template("chat.html")
 
-# Endpoint API pour le chat - POST
+# Endpoint API
 @app.route("/api/chat", methods=["POST"])
 def chat_api():
-    prompt = request.json.get("prompt", "")
+    data = request.get_json()
+    prompt = data.get("prompt", "")
     app.logger.info(f"Prompt reçu: {prompt}")
-    cmd = [
-        LLAMA_CPP_EXECUTABLE,
-        "-m", MODEL_PATH,
-        "-p", prompt,
-        "-n", "200",
-        "--temp", "0.7"
-    ]
+
+    payload = {
+        "inputs": prompt,
+        "parameters": {"max_new_tokens": 200, "temperature": 0.7}
+    }
+
     try:
-        app.logger.info(f"Exécution de la commande: {' '.join(cmd)}")
-        output = subprocess.check_output(
-            cmd, universal_newlines=True, timeout=120
-        )
-        # Nettoyer la sortie
-        cleaned_output = output.split("assistant:")[-1].strip()
-        return jsonify({"response": cleaned_output})
+        response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        result = response.json()
+
+        # Hugging Face renvoie une liste ou un dict
+        if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
+            output = result[0]["generated_text"]
+        else:
+            output = str(result)
+
+        return jsonify({"response": output})
+
     except Exception as e:
-        app.logger.error(f"Erreur: {str(e)}")
+        app.logger.error(f"Erreur Hugging Face: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    # Log des routes disponibles
-    app.logger.info("Routes enregistrées:")
-    for rule in app.url_map.iter_rules():
-        app.logger.info(f"{rule.methods}: {rule.rule}")
-
-    # Vérification du fichier template
-    template_path = os.path.join(BASE_DIR, "templates", "chat.html")
-    if os.path.exists(template_path):
-        app.logger.info(f"Template trouvé à {template_path}")
-    else:
-        app.logger.error(f"ERREUR: Template introuvable à {template_path}")
-
     app.run(host="0.0.0.0", port=8080)
