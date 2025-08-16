@@ -1,134 +1,75 @@
-import subprocess
 import os
+import subprocess
 import logging
 from flask import Flask, request, jsonify, render_template
 
-# Répertoire de base = emplacement du fichier app.py
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Créer l'application Flask avec le bon chemin des templates
 app = Flask(
     __name__,
-    template_folder=os.path.join(BASE_DIR, "templates"),
-    static_folder=None
+    template_folder=os.path.join(BASE_DIR, "templates")
 )
+app.logger.setLevel(logging.INFO)
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Chemins critiques
 MODEL_PATH = os.path.join(BASE_DIR, "Lite-Mistral-150M-v2-Instruct-FP16.gguf")
 LLAMA_CPP_EXECUTABLE = "/llama.cpp/build/bin/main"
-TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "chat.html")
 
-# Route racine
-@app.route('/')
+# Vérification du chemin de l'exécutable
+if not os.path.exists(LLAMA_CPP_EXECUTABLE):
+    app.logger.error(f"ERREUR: Exécutable Llama introuvable à {LLAMA_CPP_EXECUTABLE}")
+else:
+    app.logger.info(f"Exécutable Llama trouvé à {LLAMA_CPP_EXECUTABLE}")
+
+# Page d'accueil
+@app.route("/")
 def home():
-    logger.info("Accès à la route racine")
     return "Lite Mistral API OK"
 
-# Route GET pour l'interface de chat
-@app.route('/chat')
+# Interface de chat - GET
+@app.route("/chat", methods=["GET"])
 def chat_interface():
-    logger.info("Accès à la route /chat")
+    app.logger.info("Accès à l'interface de chat")
     try:
         return render_template("chat.html")
     except Exception as e:
-        logger.error(f"Erreur de rendu du template: {str(e)}")
+        app.logger.error(f"Erreur de rendu du template: {str(e)}")
         return f"Erreur: {str(e)}", 500
 
-# Route API de chat
-@app.route('/api/chat', methods=['POST'])
+# Endpoint API pour le chat - POST
+@app.route("/api/chat", methods=["POST"])
 def chat_api():
-    logger.info("Accès à l'API /api/chat")
+    prompt = request.json.get("prompt", "")
+    app.logger.info(f"Prompt reçu: {prompt}")
+    cmd = [
+        LLAMA_CPP_EXECUTABLE,
+        "-m", MODEL_PATH,
+        "-p", prompt,
+        "-n", "200",
+        "--temp", "0.7"
+    ]
     try:
-        data = request.get_json()
-        if not data or 'prompt' not in data:
-            return jsonify({"error": "Requête JSON invalide"}), 400
-
-        prompt = data['prompt']
-        logger.info(f"Prompt reçu: {prompt}")
-
-        cmd = [
-            LLAMA_CPP_EXECUTABLE,
-            "-m", MODEL_PATH,
-            "-p", prompt,
-            "-n", "200",
-            "--temp", "0.7"
-        ]
-
-        logger.info(f"Exécution de la commande: {' '.join(cmd)}")
+        app.logger.info(f"Exécution de la commande: {' '.join(cmd)}")
         output = subprocess.check_output(
-            cmd,
-            universal_newlines=True,
-            timeout=120
+            cmd, universal_newlines=True, timeout=120
         )
-
         # Nettoyer la sortie
         cleaned_output = output.split("assistant:")[-1].strip()
-
-        return jsonify({
-            "status": "success",
-            "response": cleaned_output
-        })
+        return jsonify({"response": cleaned_output})
     except Exception as e:
-        logger.error(f"Erreur API: {str(e)}")
+        app.logger.error(f"Erreur: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Route de diagnostic
-@app.route('/debug')
-def debug():
-    logger.info("Accès à la page de debug")
-
-    # Vérification des chemins
-    paths = {
-        "app.py": os.path.exists(os.path.join(BASE_DIR, "app.py")),
-        "templates/chat.html": os.path.exists(TEMPLATE_PATH),
-        "llama.cpp": os.path.exists(LLAMA_CPP_EXECUTABLE),
-        "model": os.path.exists(MODEL_PATH)
-    }
-
-    # Liste des routes
-    routes = []
+if __name__ == "__main__":
+    # Log des routes disponibles
+    app.logger.info("Routes enregistrées:")
     for rule in app.url_map.iter_rules():
-        routes.append({
-            "endpoint": rule.endpoint,
-            "methods": sorted(rule.methods),
-            "path": str(rule)
-        })
+        app.logger.info(f"{rule.methods}: {rule.rule}")
 
-    # Vérification des permissions du template
-    template_info = {}
-    if os.path.exists(TEMPLATE_PATH):
-        stat_info = os.stat(TEMPLATE_PATH)
-        template_info = {
-            "exists": True,
-            "size": stat_info.st_size,
-            "permissions": oct(stat_info.st_mode),
-            "readable": os.access(TEMPLATE_PATH, os.R_OK)
-        }
+    # Vérification du fichier template
+    template_path = os.path.join(BASE_DIR, "templates", "chat.html")
+    if os.path.exists(template_path):
+        app.logger.info(f"Template trouvé à {template_path}")
     else:
-        template_info = {"exists": False}
+        app.logger.error(f"ERREUR: Template introuvable à {template_path}")
 
-    return jsonify({
-        "status": "debug",
-        "paths": paths,
-        "routes": routes,
-        "template_info": template_info,
-        "environment": dict(os.environ)
-    })
-
-if __name__ == '__main__':
-    # Journalisation des routes au démarrage
-    logger.info("Application démarrée. Routes disponibles:")
-    for rule in app.url_map.iter_rules():
-        logger.info(f"Route: {rule} | Méthodes: {sorted(rule.methods)}")
-
-    # Démarrer le serveur
-    app.run(
-        host='0.0.0.0',
-        port=8080,
-        debug=False,
-        use_reloader=False
-    )
+    app.run(host="0.0.0.0", port=8080)
