@@ -7,29 +7,29 @@ from huggingface_hub import InferenceClient
 app = Flask(__name__, template_folder='templates')
 app.logger.setLevel(logging.INFO)
 
-HF_TOKEN = "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"  # Ton token HuggingFace
+# On récupère le token Hugging Face depuis la variable d'environnement Koyeb
+HF_TOKEN = os.getenv("HF_TOKEN")
 MODEL_NAME = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
+
+if not HF_TOKEN:
+    raise ValueError("⚠️ ERREUR: La variable d'environnement HF_TOKEN n'est pas définie sur Koyeb")
 
 client = InferenceClient(token=HF_TOKEN)
 
 # --- ROUTES ---
 
-# Page d'accueil
 @app.route("/")
 def home():
-    return "Lite Mistral API OK"
+    return "✅ Lite Mistral API déployée sur Koyeb"
 
-# Interface de chat
 @app.route("/chat", methods=["GET"])
 def chat_interface():
-    app.logger.info("Accès à l'interface de chat")
     try:
         return render_template("chat.html")
     except Exception as e:
-        app.logger.error(f"Erreur de rendu du template: {str(e)}")
+        app.logger.error(f"Erreur template: {str(e)}")
         return f"Erreur: {str(e)}", 500
 
-# Endpoint API pour le chat
 @app.route("/api/chat", methods=["POST"])
 def chat_api():
     prompt = request.json.get("prompt", "")
@@ -43,6 +43,8 @@ def chat_api():
             temperature=0.7
         )
 
-        # Récupération du texte généré
+        # Vérifie différents formats de retour possibles
         if isinstance(output, list) and "generated_text" in output[0]:
-            text = outpu
+            text = output[0]["generated_text"]
+        elif isinstance(output, dict) and "generated_text" in output:
+            t
