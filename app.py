@@ -1,66 +1,51 @@
+from flask import Flask, request, jsonify
+from huggingface_hub import InferenceClient
 import os
 import logging
-from flask import Flask, request, jsonify, render_template
-from huggingface_hub import InferenceClient
 
-# --- Configuration Flask ---
-app = Flask(__name__, template_folder="templates")
-app.logger.setLevel(logging.INFO)
+app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# --- Token Hugging Face Koyeb ---
-koyeb_token = os.environ.get("KOYEB_HF_TOKEN", "")
-if not koyeb_token:
-    app.logger.error("Le token Hugging Face n'est pas défini dans KOYEB_HF_TOKEN.")
+# Récupération du token depuis la variable d'environnement Koyeb
+HF_TOKEN = os.environ.get("KOYEB_HF_TOKEN")
+if not HF_TOKEN:
+    raise ValueError("Le token Hugging Face n'est pas défini dans KOYEB_HF_TOKEN")
 
-# --- Client Hugging Face ---
-client = InferenceClient(token=koyeb_token)
-model_id = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
+# Initialisation du client Hugging Face
+client = InferenceClient(token=HF_TOKEN)
 
-# --- Page d'accueil ---
-@app.route("/")
-def home():
-    return "Lite Mistral API OK"
+# ID du modèle
+MODEL_ID = "Philtonslip/Lite-Mistral-150M-v2-Instruct-FP16"
 
-# --- Interface de chat ---
-@app.route("/chat", methods=["GET"])
-def chat_interface():
-    try:
-        return render_template("chat.html")
-    except Exception as e:
-        app.logger.error(f"Erreur de rendu du template: {str(e)}")
-        return f"Erreur: {str(e)}", 500
-
-# --- Endpoint API chat ---
 @app.route("/api/chat", methods=["POST"])
-def chat_api():
-    prompt = request.json.get("prompt", "")
-    app.logger.info(f"Prompt reçu: {prompt}")
+def chat():
+    data = request.json
+    prompt = data.get("prompt", "")
+    logging.info(f"Prompt reçu: {prompt}")
 
     try:
         output = client.text_generation(
-            model=model_id,
+            model=MODEL_ID,
             prompt=prompt,
-            max_new_tokens=200,
-            temperature=0.7
+            max_new_tokens=150
         )
-        # Récupération du texte généré
-        text = output[0]["generated_text"]
+
+        # output est une liste de dicts avec la clé "generated_text"
+        if isinstance(output, list) and "generated_text" in output[0]:
+            text = output[0]["generated_text"]
+        else:
+            text = "Erreur lors de la génération du texte."
+
         return jsonify({"response": text})
+
     except Exception as e:
-        app.logger.error(f"Erreur HuggingFace API: {str(e)}")
-        return jsonify({"error": "Erreur lors de la génération du texte."}), 500
+        logging.error(f"Erreur HuggingFace API: {e}")
+        return jsonify({"response": "Erreur lors de la génération du texte."}), 500
 
-# --- Lancement de l'application ---
+@app.route("/chat")
+def chat_page():
+    # Ici tu peux mettre le HTML de ta page si nécessaire
+    return "<h1>Page chat OK</h1>"
+
 if __name__ == "__main__":
-    # Vérification du template
-    template_path = "templates/chat.html"
-    if os.path.exists(template_path):
-        app.logger.info(f"Template trouvé à {template_path}")
-    else:
-        app.logger.error(f"ERREUR: Template introuvable à {template_path}")
-
-    app.logger.info("Routes enregistrées:")
-    for rule in app.url_map.iter_rules():
-        app.logger.info(f"{rule.methods}: {rule.rule}")
-
     app.run(host="0.0.0.0", port=8080)
